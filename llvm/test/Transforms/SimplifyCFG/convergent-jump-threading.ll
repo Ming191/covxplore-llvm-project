@@ -12,13 +12,15 @@ define void @preserve_loop_header_branch(i1 %cond, ptr %ptr) convergent {
 ; CHECK-NEXT:    br i1 [[COND]], label %[[OUTER_THEN:.*]], label %[[LOOP_BODY:.*]]
 ; CHECK:       [[OUTER_THEN]]:
 ; CHECK-NEXT:    store i32 1, ptr [[PTR]], align 4
-; CHECK-NEXT:    br label %[[LOOP_THEN:.*]]
-; CHECK:       [[LOOP_THEN]]:
-; CHECK-NEXT:    store i32 2, ptr [[PTR]], align 4
 ; CHECK-NEXT:    br label %[[LOOP_BODY]]
 ; CHECK:       [[LOOP_BODY]]:
+; CHECK-NEXT:    br i1 [[COND]], label %[[LOOP_THEN:.*]], label %[[LOOP_BODY1:.*]]
+; CHECK:       [[LOOP_THEN]]:
+; CHECK-NEXT:    store i32 2, ptr [[PTR]], align 4
+; CHECK-NEXT:    br label %[[LOOP_BODY1]]
+; CHECK:       [[LOOP_BODY1]]:
 ; CHECK-NEXT:    call void @barrier() #[[ATTR0]]
-; CHECK-NEXT:    br i1 [[COND]], label %[[LOOP_THEN]], label %[[EXIT:.*]]
+; CHECK-NEXT:    br i1 [[COND]], label %[[LOOP_BODY]], label %[[EXIT:.*]]
 ; CHECK:       [[EXIT]]:
 ; CHECK-NEXT:    ret void
 ;

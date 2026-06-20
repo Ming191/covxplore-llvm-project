@@ -3543,6 +3543,39 @@ static ConstantInt *getKnownValueOnEdge(Value *V, BasicBlock *From,
   return nullptr;
 }
 
+static bool isUncontrolledConvergentCall(CallBase *CB) {
+  return CB->isConvergent() && !isa<ConvergenceControlInst>(CB) &&
+         !CB->getConvergenceControlToken();
+}
+
+static bool reachesUncontrolledConvergentCallBeforeBlock(BasicBlock *From,
+                                                         BasicBlock *StopBB) {
+  SmallVector<BasicBlock *, 8> Worklist;
+  SmallPtrSet<BasicBlock *, 8> Visited;
+  Worklist.push_back(From);
+
+  while (!Worklist.empty()) {
+    BasicBlock *BB = Worklist.pop_back_val();
+    if (BB == StopBB)
+      continue;
+
+    if (!Visited.insert(BB).second)
+      continue;
+    if (Visited.size() > MaxJumpThreadingLiveBlocks)
+      return true;
+
+    for (Instruction &I : *BB) {
+      auto *CB = dyn_cast<CallBase>(&I);
+      if (CB && isUncontrolledConvergentCall(CB))
+        return true;
+    }
+
+    append_range(Worklist, successors(BB));
+  }
+
+  return false;
+}
+
 /// If we have a conditional branch on something for which we know the constant
 /// value in predecessors (e.g. a phi node in the current block), thread edges
 /// from the predecessor to their ultimate destination.
@@ -3617,6 +3650,13 @@ foldCondBranchOnValueKnownInPredecessorImpl(CondBrInst *BI, DomTreeUpdater *DTU,
 
     // Only revector to RealDest if no values defined in BB are live.
     if (ReachesNonLocalUseBlocks.contains(RealDest))
+      continue;
+
+    // Threading through a branch can bypass a reconvergence point. If the
+    // destination can execute an uncontrolled convergent operation before
+    // returning to this block, this may change the dynamic instance of that
+    // operation.
+    if (reachesUncontrolledConvergentCallBeforeBlock(RealDest, BB))
       continue;
 
     LLVM_DEBUG({
