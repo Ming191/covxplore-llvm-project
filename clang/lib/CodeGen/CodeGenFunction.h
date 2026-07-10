@@ -1600,7 +1600,6 @@ public:
     CodeGenFunction &CGF;
     const Expr *Decision;
     bool Active;
-    bool Completed = false;
 
   public:
     MCDCTraceScope(CodeGenFunction &CGF, const Expr *Decision);
