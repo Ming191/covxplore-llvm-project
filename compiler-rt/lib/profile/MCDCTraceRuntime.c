@@ -124,10 +124,17 @@ void __mcdc_trace_complete(const char *function_name, uint64_t function_hash,
   (void)function_name;
   if (mcdc_depth == 0)
     return;
-  MCDCContext *context = &mcdc_contexts[mcdc_depth - 1];
-  if (!context->active || context->function_hash != function_hash ||
-      context->bitmap_index != bitmap_index)
+  uint32_t index = mcdc_depth;
+  while (index != 0) {
+    --index;
+    MCDCContext *candidate = &mcdc_contexts[index];
+    if (candidate->active && candidate->function_hash == function_hash &&
+        candidate->bitmap_index == bitmap_index)
+      break;
+  }
+  if (index == mcdc_depth)
     return;
+  MCDCContext *context = &mcdc_contexts[index];
 
   MCDCEvent event = {
       0,
@@ -141,6 +148,7 @@ void __mcdc_trace_complete(const char *function_name, uint64_t function_hash,
       0,
   };
   context->active = 0;
-  --mcdc_depth;
+  if (index + 1 == mcdc_depth)
+    --mcdc_depth;
   mcdc_write_event(&event);
 }
