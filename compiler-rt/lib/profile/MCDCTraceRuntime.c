@@ -16,6 +16,7 @@
 #define MCDC_TRACE_VERSION 1U
 #define MCDC_MAX_CONDITIONS 32U
 
+#pragma pack(push, 1)
 typedef struct {
   uint32_t magic;
   uint16_t version;
@@ -34,6 +35,9 @@ typedef struct {
   uint8_t status;
   uint16_t reserved;
 } MCDCEvent;
+#pragma pack(pop)
+
+typedef char MCDCEventSizeMustBe52[(sizeof(MCDCEvent) == 52) ? 1 : -1];
 
 typedef struct {
   uint64_t function_hash;
