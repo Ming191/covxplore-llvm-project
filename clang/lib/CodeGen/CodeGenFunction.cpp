@@ -1654,6 +1654,26 @@ bool CodeGenFunction::isInstrumentedCondition(const Expr *C) {
   return (!BOp || !BOp->isLogicalOp());
 }
 
+bool CodeGenFunction::maybeBeginMCDCTrace(const Expr *E) {
+  return PGO.emitMCDCTraceBegin(Builder, E);
+}
+
+void CodeGenFunction::maybeCompleteMCDCTrace(const Expr *E,
+                                             llvm::Value *Result) {
+  PGO.emitMCDCTraceComplete(Builder, E, Result);
+}
+
+CodeGenFunction::MCDCTraceScope::MCDCTraceScope(CodeGenFunction &CGF,
+                                                 const Expr *Decision)
+    : CGF(CGF), Decision(Decision), Active(CGF.maybeBeginMCDCTrace(Decision)) {}
+
+CodeGenFunction::MCDCTraceScope::~MCDCTraceScope() = default;
+
+void CodeGenFunction::MCDCTraceScope::complete(llvm::Value *Result) {
+  if (Active)
+    CGF.maybeCompleteMCDCTrace(Decision, Result);
+}
+
 /// EmitBranchToCounterBlock - Emit a conditional branch to a new block that
 /// increments a profile counter based on the semantics of the given logical
 /// operator opcode.  This is used to instrument branch condition coverage for

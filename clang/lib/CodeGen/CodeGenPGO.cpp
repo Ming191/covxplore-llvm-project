@@ -1181,6 +1181,43 @@ void CodeGenPGO::emitMCDCCondBitmapReset(CGBuilderTy &Builder, const Expr *S,
   Builder.CreateStore(Builder.getInt32(0), MCDCCondBitmapAddr);
 }
 
+bool CodeGenPGO::emitMCDCTraceBegin(CGBuilderTy &Builder, const Expr *S) {
+  if (!canEmitMCDCCoverage(Builder) || !RegionMCDCBitmapMap)
+    return false;
+
+  S = S->IgnoreParens();
+  auto It = RegionMCDCBitmapMap->find(S);
+  if (It == RegionMCDCBitmapMap->end())
+    return false;
+
+  auto *I8PtrTy = llvm::PointerType::getUnqual(CGM.getLLVMContext());
+  llvm::Value *Args[4] = {llvm::ConstantExpr::getBitCast(FuncNameVar, I8PtrTy),
+                          Builder.getInt64(FunctionHash),
+                          Builder.getInt32(It->second),
+                          Builder.getInt32(MCDCBitmapBytes)};
+  Builder.CreateCall(
+      CGM.getIntrinsic(llvm::Intrinsic::instrprof_mcdc_trace_begin), Args);
+  return true;
+}
+
+void CodeGenPGO::emitMCDCTraceComplete(CGBuilderTy &Builder, const Expr *S,
+                                       llvm::Value *Result) {
+  if (!canEmitMCDCCoverage(Builder) || !RegionMCDCBitmapMap)
+    return;
+
+  S = S->IgnoreParens();
+  auto It = RegionMCDCBitmapMap->find(S);
+  if (It == RegionMCDCBitmapMap->end())
+    return;
+
+  auto *I8PtrTy = llvm::PointerType::getUnqual(CGM.getLLVMContext());
+  llvm::Value *Args[4] = {llvm::ConstantExpr::getBitCast(FuncNameVar, I8PtrTy),
+                          Builder.getInt64(FunctionHash),
+                          Builder.getInt32(It->second), Result};
+  Builder.CreateCall(
+      CGM.getIntrinsic(llvm::Intrinsic::instrprof_mcdc_trace_complete), Args);
+}
+
 void CodeGenPGO::emitMCDCCondBitmapUpdate(CGBuilderTy &Builder, const Expr *S,
                                           Address MCDCCondBitmapAddr,
                                           llvm::Value *Val) {

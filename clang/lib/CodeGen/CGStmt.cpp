@@ -847,7 +847,9 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
   if (!CGM.getCodeGenOpts().MCDCCoverage)
     EmitBranchOnBoolExpr(S.getCond(), ThenBlock, ElseBlock, ThenCount, LH);
   else {
+    MCDCTraceScope Trace(*this, S.getCond());
     llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
+    Trace.complete(BoolCondVal);
     Builder.CreateCondBr(BoolCondVal, ThenBlock, ElseBlock);
   }
 
@@ -911,7 +913,9 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   // Evaluate the conditional in the while header.  C99 6.8.5.1: The
   // evaluation of the controlling expression takes place before each
   // execution of the loop body.
+  MCDCTraceScope Trace(*this, S.getCond());
   llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
+  Trace.complete(BoolCondVal);
 
   // while(1) is common, avoid extra exit blocks.  Be sure
   // to correctly handle break/continue though.
@@ -1109,7 +1113,9 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
 
     // C99 6.8.5p2/p4: The first substatement is executed if the expression
     // compares unequal to 0.  The condition must be a scalar type.
+    MCDCTraceScope Trace(*this, S.getCond());
     llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
+    Trace.complete(BoolCondVal);
     llvm::MDNode *Weights =
         createProfileWeightsForLoop(S.getCond(), getProfileCount(S.getBody()));
     if (!Weights && CGM.getCodeGenOpts().OptimizationLevel)

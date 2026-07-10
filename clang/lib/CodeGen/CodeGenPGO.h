@@ -119,6 +119,9 @@ public:
                                Address MCDCCondBitmapAddr);
   void emitMCDCCondBitmapUpdate(CGBuilderTy &Builder, const Expr *S,
                                 Address MCDCCondBitmapAddr, llvm::Value *Val);
+  bool emitMCDCTraceBegin(CGBuilderTy &Builder, const Expr *S);
+  void emitMCDCTraceComplete(CGBuilderTy &Builder, const Expr *S,
+                             llvm::Value *Result);
 
   /// Return the region count for the counter at the given index.
   uint64_t getRegionCount(const Stmt *S) {

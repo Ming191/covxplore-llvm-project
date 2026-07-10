@@ -250,6 +250,10 @@ private:
   /// the corresponding condition ID.
   void lowerMCDCCondBitmapUpdate(InstrProfMCDCCondBitmapUpdate *Ins);
 
+  /// Lower downstream source-level MC/DC execution markers to the trace runtime.
+  void lowerMCDCTraceBegin(IntrinsicInst *Ins);
+  void lowerMCDCTraceComplete(IntrinsicInst *Ins);
+
   /// Compute the address of the counter value that this profiling instruction
   /// acts on.
   Value *getCounterAddress(InstrProfCntrInstBase *I);
@@ -613,6 +617,15 @@ bool InstrLowerer::lowerIntrinsics(Function *F) {
       } else if (auto *IPTU = dyn_cast<InstrProfMCDCCondBitmapUpdate>(&Instr)) {
         lowerMCDCCondBitmapUpdate(IPTU);
         MadeChange = true;
+      } else if (auto *II = dyn_cast<IntrinsicInst>(&Instr)) {
+        if (II->getIntrinsicID() == Intrinsic::instrprof_mcdc_trace_begin) {
+          lowerMCDCTraceBegin(II);
+          MadeChange = true;
+        } else if (II->getIntrinsicID() ==
+                   Intrinsic::instrprof_mcdc_trace_complete) {
+          lowerMCDCTraceComplete(II);
+          MadeChange = true;
+        }
       }
     }
   }
@@ -965,6 +978,36 @@ void InstrLowerer::lowerCoverageData(GlobalVariable *CoverageNamesVar) {
   CoverageNamesVar->eraseFromParent();
 }
 
+void InstrLowerer::lowerMCDCTraceBegin(IntrinsicInst *Ins) {
+  IRBuilder<> Builder(Ins);
+  LLVMContext &Ctx = M.getContext();
+  Type *ArgTypes[] = {PointerType::getUnqual(Ctx), Type::getInt64Ty(Ctx),
+                      Type::getInt32Ty(Ctx), Type::getInt32Ty(Ctx)};
+  auto *FnTy = FunctionType::get(Type::getVoidTy(Ctx), ArgTypes, false);
+  auto Callee = M.getOrInsertFunction("__mcdc_trace_begin", FnTy);
+  auto *Call = Builder.CreateCall(Callee, {Ins->getArgOperand(0),
+                                            Ins->getArgOperand(1),
+                                            Ins->getArgOperand(2),
+                                            Ins->getArgOperand(3)});
+  Call->setDoesNotThrow();
+  Ins->eraseFromParent();
+}
+
+void InstrLowerer::lowerMCDCTraceComplete(IntrinsicInst *Ins) {
+  IRBuilder<> Builder(Ins);
+  LLVMContext &Ctx = M.getContext();
+  Type *ArgTypes[] = {PointerType::getUnqual(Ctx), Type::getInt64Ty(Ctx),
+                      Type::getInt32Ty(Ctx), Type::getInt1Ty(Ctx)};
+  auto *FnTy = FunctionType::get(Type::getVoidTy(Ctx), ArgTypes, false);
+  auto Callee = M.getOrInsertFunction("__mcdc_trace_complete", FnTy);
+  auto *Call = Builder.CreateCall(Callee, {Ins->getArgOperand(0),
+                                            Ins->getArgOperand(1),
+                                            Ins->getArgOperand(2),
+                                            Ins->getArgOperand(3)});
+  Call->setDoesNotThrow();
+  Ins->eraseFromParent();
+}
+
 void InstrLowerer::lowerMCDCTestVectorBitmapUpdate(
     InstrProfMCDCTVBitmapUpdate *Update) {
   IRBuilder<> Builder(Update);
@@ -1042,6 +1085,18 @@ void InstrLowerer::lowerMCDCCondBitmapUpdate(
   // Store the updated temporary value back to the stack.
   //  store i32 %3, ptr %mcdc.addr, align 4
   Builder.CreateStore(Result, MCDCCondBitmapAddr);
+
+  // Aggregate profile bitmaps cannot distinguish evaluated false from skipped.
+  // Forward native condition events to runtime; never infer them from CFG.
+  LLVMContext &Ctx = M.getContext();
+  Type *ArgTypes[] = {PointerType::getUnqual(Ctx), Type::getInt64Ty(Ctx),
+                      Type::getInt32Ty(Ctx), Type::getInt1Ty(Ctx)};
+  auto *FnTy = FunctionType::get(Type::getVoidTy(Ctx), ArgTypes, false);
+  auto Callee = M.getOrInsertFunction("__mcdc_trace_condition", FnTy);
+  auto *Call = Builder.CreateCall(
+      Callee, {Update->getArgOperand(0), Update->getArgOperand(1),
+               Update->getCondID(), Update->getCondBool()});
+  Call->setDoesNotThrow();
   Update->eraseFromParent();
 }
 

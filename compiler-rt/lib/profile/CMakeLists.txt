@@ -68,6 +68,7 @@ set(PROFILE_SOURCES
   InstrProfilingPlatformWindows.c
   InstrProfilingRuntime.cpp
   InstrProfilingUtil.c
+  MCDCTraceRuntime.c
   )
 
 set(PROFILE_HEADERS

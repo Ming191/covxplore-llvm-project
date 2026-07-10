@@ -1591,6 +1591,22 @@ public:
     }
   }
 
+  /// Record a source-level decision execution independently of aggregate MC/DC
+  /// profile bitmaps. These markers lower to opaque runtime calls.
+  bool maybeBeginMCDCTrace(const Expr *E);
+  void maybeCompleteMCDCTrace(const Expr *E, llvm::Value *Result);
+
+  class MCDCTraceScope {
+    CodeGenFunction &CGF;
+    const Expr *Decision;
+    bool Active;
+
+  public:
+    MCDCTraceScope(CodeGenFunction &CGF, const Expr *Decision);
+    ~MCDCTraceScope();
+    void complete(llvm::Value *Result);
+  };
+
   /// Get the profiler's count for the given statement.
   uint64_t getProfileCount(const Stmt *S) {
     return PGO.getStmtCount(S).value_or(0);

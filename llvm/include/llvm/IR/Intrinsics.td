@@ -930,6 +930,19 @@ def int_instrprof_mcdc_condbitmap_update : Intrinsic<[],
                                         [llvm_ptr_ty, llvm_i64_ty,
                                          llvm_i32_ty, llvm_ptr_ty, llvm_i1_ty]>;
 
+// A compiler-internal MC/DC execution begins. This remains distinct from
+// coverage bitmap bookkeeping: it carries runtime trace state, not aggregate
+// profile data.
+def int_instrprof_mcdc_trace_begin : Intrinsic<[],
+                                        [llvm_ptr_ty, llvm_i64_ty,
+                                         llvm_i32_ty, llvm_i32_ty]>;
+
+// A compiler-internal MC/DC execution completed with its source-level boolean
+// result. It is emitted after the expression result materializes.
+def int_instrprof_mcdc_trace_complete : Intrinsic<[],
+                                        [llvm_ptr_ty, llvm_i64_ty,
+                                         llvm_i32_ty, llvm_i1_ty]>;
+
 def int_call_preallocated_setup : DefaultAttrsIntrinsic<[llvm_token_ty], [llvm_i32_ty]>;
 def int_call_preallocated_arg : DefaultAttrsIntrinsic<[llvm_ptr_ty], [llvm_token_ty, llvm_i32_ty]>;
 def int_call_preallocated_teardown : DefaultAttrsIntrinsic<[], [llvm_token_ty]>;
